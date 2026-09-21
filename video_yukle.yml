@@ -1,0 +1,47 @@
+name: video_yukle
+
+# BILINCLI OLARAK zamanlanmis degil - sadece sen "Run workflow" ile
+# elle tetikledigin zaman calisir. Bu, insan onayinin koda gomulu oldugu yer.
+on:
+  workflow_dispatch:
+    inputs:
+      kaynak_run_id:
+        description: "video_uret workflow'unun run ID'si (video_uret ciktisinda / Telegram mesajinda yazar)"
+        required: true
+      video_id:
+        description: "Yuklenecek video klasorunun adi (orn. 20260916_1430_a1b2c3)"
+        required: true
+
+jobs:
+  yukle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bagimliliklari kur
+        run: pip install -r requirements.txt
+
+      - name: Onay bekleyen video artifact'ini indir
+        uses: actions/download-artifact@v4
+        with:
+          name: video-${{ inputs.kaynak_run_id }}
+          path: onay_bekleyen/${{ inputs.video_id }}
+          run-id: ${{ inputs.kaynak_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: YouTube kimlik dosyalarini yaz
+        run: |
+          echo "${{ secrets.YOUTUBE_CLIENT_SECRETS_B64 }}" | base64 -d > client_secrets.json
+          echo "${{ secrets.YOUTUBE_TOKEN_B64 }}" | base64 -d > youtube_token.json
+
+      - name: YouTube'a yukle (private olarak)
+        env:
+          YOUTUBE_CLIENT_SECRETS_FILE: client_secrets.json
+          YOUTUBE_TOKEN_FILE: youtube_token.json
+        run: python yukle.py ${{ inputs.video_id }}
